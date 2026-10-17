@@ -113,6 +113,19 @@ class PaddleProviderTest {
     }
 
     @Test
+    void jsonNullsAreNullNotEmptyStrings() {
+        WebhookEvent event = provider.parseWebhook(signed("""
+                {"event_id":"evt_n","event_type":"transaction.updated","occurred_at":"2026-10-11T02:30:00Z",
+                 "data":{"id":"txn_1","status":"ready","subscription_id":null,"currency_code":null,
+                  "custom_data":{"order_id":null},"billing_period":null}}"""));
+
+        assertThat(event.payment().orderId()).isNull();
+        assertThat(event.payment().subscriptionId()).isNull();
+        assertThat(event.payment().currency()).isNull();
+        assertThat(event.payment().periodEnd()).isNull();
+    }
+
+    @Test
     void renewalWithoutOurCustomDataStillTiesToTheSubscription() {
         WebhookEvent event = provider.parseWebhook(signed("""
                 {"event_id":"evt_2","event_type":"transaction.completed","occurred_at":"2026-11-11T02:30:00Z",

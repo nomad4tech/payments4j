@@ -120,6 +120,18 @@ class NowPaymentsProviderTest {
     }
 
     @Test
+    void jsonNullsAreNullNotEmptyStrings() {
+        WebhookEvent event = provider(null).parseWebhook(signed(
+                "{\"payment_id\":1,\"payment_status\":\"waiting\",\"order_id\":null,\"price_amount\":null,"
+                        + "\"price_currency\":null,\"updated_at\":null}"));
+
+        assertThat(event.payment().orderId()).isNull();
+        assertThat(event.payment().amount()).isNull();
+        assertThat(event.payment().currency()).isNull();
+        assertThat(event.occurredAt()).isNull();
+    }
+
+    @Test
     void ipnTimestampInEpochMillisIsRead() {
         WebhookEvent event = provider(null).parseWebhook(signed(
                 "{\"payment_id\":1,\"payment_status\":\"waiting\",\"updated_at\":1791684721100}"));

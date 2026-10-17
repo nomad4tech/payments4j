@@ -73,8 +73,8 @@ class NowPaymentsProvider implements PaymentProvider {
         putIfPresent(body, "cancel_url", request.cancelUrl());
 
         JsonNode invoice = post("/invoice", body, "invoice creation");
-        String id = invoice.path("id").asString(null);
-        String url = invoice.path("invoice_url").asString(null);
+        String id = text(invoice.path("id"));
+        String url = text(invoice.path("invoice_url"));
         if (id == null || url == null) {
             throw new PaymentProviderException("NOWPayments invoice response has no id/invoice_url: "
                     + abbreviate(invoice.toString()));
@@ -95,8 +95,7 @@ class NowPaymentsProvider implements PaymentProvider {
         body.put("iid", invoiceId);
         body.put("pay_currency", config.payCurrency());
         putIfPresent(body, "order_description", description);
-        String paymentId = post("/invoice-payment", body, "payment creation")
-                .path("payment_id").asString(null);
+        String paymentId = text(post("/invoice-payment", body, "payment creation").path("payment_id"));
         if (paymentId == null) {
             throw new PaymentProviderException("NOWPayments payment response has no payment_id");
         }
@@ -114,8 +113,8 @@ class NowPaymentsProvider implements PaymentProvider {
         if (json == null || !json.isObject()) {
             throw new WebhookParseException("IPN body is not a JSON object");
         }
-        String paymentId = json.path("payment_id").asString(null);
-        String status = json.path("payment_status").asString(null);
+        String paymentId = text(json.path("payment_id"));
+        String status = text(json.path("payment_status"));
         if (paymentId == null || status == null) {
             throw new WebhookParseException("IPN body has no payment_id/payment_status");
         }
@@ -163,7 +162,7 @@ class NowPaymentsProvider implements PaymentProvider {
                         "NOWPayments payment lookup failed: HTTP " + response.code() + " " + abbreviate(text));
             }
             JsonNode json = readJson(text);
-            if (json.path("payment_status").asString(null) == null) {
+            if (text(json.path("payment_status")) == null) {
                 return Optional.empty();
             }
             return Optional.of(paymentInfo(json));
@@ -177,12 +176,12 @@ class NowPaymentsProvider implements PaymentProvider {
     /** The amount is the price in the fiat currency of the invoice, not {@code actually_paid}: see {@code PaymentInfo}. */
     private static PaymentInfo paymentInfo(JsonNode json) {
         JsonNode price = json.path("price_amount");
-        String currency = json.path("price_currency").asString(null);
+        String currency = text(json.path("price_currency"));
         boolean hasPrice = price.isNumber() && currency != null;
         return new PaymentInfo(
-                mapStatus(json.path("payment_status").asString("")),
-                json.path("payment_id").asString(null),
-                json.path("order_id").asString(null),
+                mapStatus(text(json.path("payment_status"))),
+                text(json.path("payment_id")),
+                text(json.path("order_id")),
                 null,
                 hasPrice ? price.decimalValue() : null,
                 hasPrice ? currency.toUpperCase(Locale.ROOT) : null,
@@ -190,6 +189,9 @@ class NowPaymentsProvider implements PaymentProvider {
     }
 
     static PaymentStatus mapStatus(String status) {
+        if (status == null) {
+            return PaymentStatus.UNKNOWN;
+        }
         return switch (status) {
             case "waiting" -> PaymentStatus.PENDING;
             case "confirming", "confirmed", "sending" -> PaymentStatus.PROCESSING;
@@ -236,7 +238,7 @@ class NowPaymentsProvider implements PaymentProvider {
         if (node.isNumber()) {
             return Instant.ofEpochMilli(node.longValue());
         }
-        String text = node.asString(null);
+        String text = text(node);
         return text == null ? null : Instant.parse(text);
     }
 
@@ -244,6 +246,11 @@ class NowPaymentsProvider implements PaymentProvider {
         if (value != null && !value.isBlank()) {
             node.put(field, value);
         }
+    }
+
+    /** Text of a value node; null for a missing field and for a JSON null (Jackson would turn the latter into ""). */
+    private static String text(JsonNode node) {
+        return node.isMissingNode() || node.isNull() ? null : node.asString();
     }
 
     private static String abbreviate(String text) {

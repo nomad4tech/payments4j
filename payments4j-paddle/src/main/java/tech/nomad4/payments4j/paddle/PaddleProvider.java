@@ -88,13 +88,13 @@ class PaddleProvider implements PaymentProvider {
                         "Paddle transaction creation failed: HTTP " + response.code() + " " + abbreviate(text));
             }
             JsonNode data = readJson(text).path("data");
-            String id = data.path("id").asString(null);
-            String url = data.path("checkout").path("url").asString(null);
+            String id = text(data.path("id"));
+            String url = text(data.path("checkout").path("url"));
             if (id == null || url == null) {
                 throw new PaymentProviderException("Paddle response has no id/checkout.url: " + abbreviate(text));
             }
-            String currency = data.path("currency_code").asString(null);
-            BigDecimal amount = toAmount(data.path("details").path("totals").path("total").asString(null), currency);
+            String currency = text(data.path("currency_code"));
+            BigDecimal amount = toAmount(text(data.path("details").path("totals").path("total")), currency);
             return amount == null
                     ? new CheckoutSession(id, url)
                     : new CheckoutSession(id, url, amount, currency);
@@ -114,8 +114,8 @@ class PaddleProvider implements PaymentProvider {
         if (json == null || !json.isObject()) {
             throw new WebhookParseException("Paddle webhook body is not a JSON object");
         }
-        String eventId = json.path("event_id").asString(null);
-        String eventType = json.path("event_type").asString(null);
+        String eventId = text(json.path("event_id"));
+        String eventType = text(json.path("event_type"));
         if (eventId == null || eventType == null) {
             throw new WebhookParseException("Paddle webhook has no event_id/event_type");
         }
@@ -156,7 +156,7 @@ class PaddleProvider implements PaymentProvider {
                     PaymentStatus status = info.status();
                     for (JsonNode adjustment : adjustments.path("data")) {
                         PaymentStatus adj = mapStatus("adjustment.updated", "approved",
-                                adjustment.path("action").asString(null));
+                                text(adjustment.path("action")));
                         if (adj == PaymentStatus.CHARGEBACK || adj == PaymentStatus.REFUNDED && status != PaymentStatus.CHARGEBACK) {
                             status = adj;
                         }
@@ -180,13 +180,13 @@ class PaddleProvider implements PaymentProvider {
      */
     private static PaymentInfo paymentInfo(String eventType, JsonNode data) {
         if (eventType.startsWith("transaction.")) {
-            String currency = data.path("currency_code").asString(null);
-            BigDecimal amount = toAmount(data.path("details").path("totals").path("total").asString(null), currency);
+            String currency = text(data.path("currency_code"));
+            BigDecimal amount = toAmount(text(data.path("details").path("totals").path("total")), currency);
             return new PaymentInfo(
-                    mapStatus(eventType, data.path("status").asString(null), null),
-                    data.path("id").asString(null),
-                    data.path("custom_data").path("order_id").asString(null),
-                    data.path("subscription_id").asString(null),
+                    mapStatus(eventType, text(data.path("status")), null),
+                    text(data.path("id")),
+                    text(data.path("custom_data").path("order_id")),
+                    text(data.path("subscription_id")),
                     amount,
                     amount == null ? null : currency,
                     instant(data.path("billing_period").path("ends_at")));
@@ -194,14 +194,14 @@ class PaddleProvider implements PaymentProvider {
         if (eventType.startsWith("adjustment.")) {
             // an adjustment has its own id adj_...; the payment it belongs to is in transaction_id
             return new PaymentInfo(
-                    mapStatus(eventType, data.path("status").asString(null), data.path("action").asString(null)),
-                    data.path("transaction_id").asString(null), null, null, null, null, null);
+                    mapStatus(eventType, text(data.path("status")), text(data.path("action"))),
+                    text(data.path("transaction_id")), null, null, null, null, null);
         }
         if (eventType.startsWith("subscription.")) {
             return new PaymentInfo(
                     PaymentStatus.UNKNOWN, null,
-                    data.path("custom_data").path("order_id").asString(null),
-                    data.path("id").asString(null),
+                    text(data.path("custom_data").path("order_id")),
+                    text(data.path("id")),
                     null, null,
                     instant(data.path("current_billing_period").path("ends_at")));
         }
@@ -271,7 +271,7 @@ class PaddleProvider implements PaymentProvider {
 
     /** Null for a missing field; throws {@link DateTimeParseException} for a malformed one. */
     private static Instant instant(JsonNode node) {
-        String text = node.asString(null);
+        String text = text(node);
         return text == null ? null : OffsetDateTime.parse(text).toInstant();
     }
 
@@ -289,6 +289,11 @@ class PaddleProvider implements PaymentProvider {
         } catch (IllegalArgumentException e) {
             return null;
         }
+    }
+
+    /** Text of a value node; null for a missing field and for a JSON null (Jackson would turn the latter into ""). */
+    private static String text(JsonNode node) {
+        return node.isMissingNode() || node.isNull() ? null : node.asString();
     }
 
     private static String abbreviate(String text) {

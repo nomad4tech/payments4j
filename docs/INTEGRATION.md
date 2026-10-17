@@ -87,7 +87,9 @@ ResponseEntity<Void> receive(@PathVariable String provider, @RequestBody byte[] 
 Grant on `PAID` only, never on `PROCESSING` or `PARTIALLY_PAID`. Revoke on `REFUNDED` and `CHARGEBACK`.
 
 For a subscription, `payment().periodEnd()` is the end of the period that was just paid: set your "access until"
-to it on every `PAID` event (a renewal is a new transaction with a new `periodEnd`). For a one-off payment
+to it on every `PAID` event. A renewal is a new transaction of an order that is already `PAID`, so
+`StatusRules.decide(PAID, PAID)` says `UNCHANGED`; extend "access until" anyway (and never move it backwards, since
+events arrive out of order). For a one-off payment
 (`periodEnd == null`, NOWPayments) compute the period yourself. Decide up front what happens when a subscription
 payment fails and the provider retries: Paddle keeps retrying for days, so keeping access until the subscription is
 actually canceled may be kinder than cutting it at the first `FAILED`.
