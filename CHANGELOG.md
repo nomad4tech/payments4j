@@ -20,5 +20,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Notes
 
-- Verified only against the provider sandboxes. Recurring payments (renewals) are implemented from the Paddle
-  documentation and not yet exercised against the live sandbox; see Known limitations in the README.
+- Verified only against the provider sandboxes, including a successful Paddle subscription renewal. A declined
+  renewal and a cancellation are implemented from the documentation and not exercised; see Known limitations in the
+  README.

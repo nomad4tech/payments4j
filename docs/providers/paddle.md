@@ -108,9 +108,15 @@ An alternative without `POST /transactions` is opening the overlay from JavaScri
   order of yours must simply be accepted and stored.
 - **`custom_data` is present in `subscription.*`**, but they are not payments: do not change an order status from
   them (the library returns `UNKNOWN` for exactly that reason).
-- **Renewals are not verified.** The first payment was observed; the automatic charge of the next period (a new
-  transaction created by Paddle, and whether it carries your `order_id`) was not. Tie renewals to your order
-  through `subscriptionId`.
+- **Renewals.** Verified on 2026-10-17: the sandbox subscription's `next_billed_at` was moved with
+  `PATCH /subscriptions/{id}` (`do_not_bill`) and Paddle renewed it on schedule. The renewal is a new transaction
+  (`origin: subscription_recurring`) that arrives as `transaction.billed` -> `created` -> `paid` -> `updated` ->
+  `completed`, plus `subscription.updated`. It carries the `order_id` of the first payment in `custom_data` (the
+  subscription's `custom_data` is inherited), the same `subscription_id` and a `billing_period` one period later.
+  Not verified: a declined renewal (`past_due`, retries) and cancellation.
+- **Testing a renewal.** `next_billed_at` cannot be moved closer than 30 minutes (`subscription_next_billed_at_too_soon`),
+  and a subscription with a billing date inside 30 minutes cannot be changed at all. Send
+  `{"next_billed_at": "<now + 31 min>", "proration_billing_mode": "do_not_bill"}` and wait.
 - **Ngrok free** shows an interstitial page to browsers on first visit; server-to-server webhooks are not affected.
 - **The price in the request does not affect Paddle:** do not show the customer your own number, show
   `CheckoutSession.amount()`.

@@ -117,10 +117,11 @@ scenarios in [docs/NEGATIVE_SCENARIOS.md](docs/NEGATIVE_SCENARIOS.md), going liv
 - **Sandbox only.** Both providers were exercised end to end in their sandboxes (payment, failures, refund,
   lost webhooks, reconciliation). Nothing has run against a production account yet; read
   [docs/GOING_TO_PRODUCTION.md](docs/GOING_TO_PRODUCTION.md) before the first real payment.
-- **Subscription renewals are not verified live.** `PaymentInfo.subscriptionId` and `periodEnd` are read from the
-  documented Paddle fields and covered by fixture tests, but a renewal transaction has not been observed in the
-  sandbox. In particular, whether a renewal carries your `order_id` in `custom_data` is unconfirmed: link
-  renewals to your order through `subscriptionId` (the first `transaction.*` or `subscription.*` event carries both).
+- **Only the successful renewal is verified.** A Paddle sandbox subscription was moved to renew within minutes: the
+  renewal arrived as a new `transaction.*` series, signed, with your `order_id` in `custom_data` (inherited from the
+  subscription), the same `subscriptionId` and a `periodEnd` one period later. A failed renewal (card declined on the
+  next charge, `past_due`, the retry schedule) and a cancellation were not exercised; they are implemented from the
+  documentation only. Still, do not depend on `order_id` for renewals alone: `subscriptionId` ties them to your order.
 - **No storage, scheduling or retries.** Deduplicating events, persisting orders, running reconciliation and
   alerting are the application's job; `docs/INTEGRATION.md` describes a working shape.
 - **Paddle amounts in minor units.** Conversion uses the currency's standard number of decimals; a currency the JDK

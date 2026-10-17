@@ -94,9 +94,10 @@ events arrive out of order). For a one-off payment
 payment fails and the provider retries: Paddle keeps retrying for days, so keeping access until the subscription is
 actually canceled may be kinder than cutting it at the first `FAILED`.
 
-Renewals are not verified live (see Known limitations): a renewal transaction may arrive without your `order_id`.
-Link it to your order through `subscriptionId`, which the first `transaction.*` and `subscription.*` events carry
-together with the `orderId`.
+A Paddle renewal (verified in the sandbox) arrives with the `orderId` of the first payment and the same
+`subscriptionId`, but do not rely on the `orderId` alone: when it is missing, find the order by `subscriptionId`,
+which the first `transaction.*` and `subscription.*` events carry together with the `orderId`. A declined renewal
+and a cancellation were not exercised (see Known limitations).
 
 ## Reconciliation
 
